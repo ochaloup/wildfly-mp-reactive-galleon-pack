@@ -36,5 +36,6 @@
         <module name="io.smallrye.context-propagation" services="import"/>
         <module name="javax.enterprise.api"/>
         <module name="org.wildfly.security.manager"/>
+        <module name="io.undertow.servlet"/>
     </dependencies>
 </module>
