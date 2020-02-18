@@ -1,5 +1,10 @@
 ![CI](https://github.com/kabir/wildfly-mp-reactive-galleon-pack/workflows/Galleon%20Pack%20Template%20Java%20CI/badge.svg)
 
+OCHALOUP what to do:
+- build the WFLY with updated narayana
+- check the correct version of version.org.wildfly in pom.xml (https://github.com/kabir/wildfly-mp-reactive-galleon-pack/blob/master/pom.xml#L41)
+- mvn clean install -DskipTests
+
 # WildFly MicroProfile Reactive Feature Pack
 
 This repository contains a Galleon feature pack to add the MicroProfile reactive subsystems to WildFly.
