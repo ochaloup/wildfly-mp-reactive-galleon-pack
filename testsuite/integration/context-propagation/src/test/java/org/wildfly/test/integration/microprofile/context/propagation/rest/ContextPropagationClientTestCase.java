@@ -153,10 +153,15 @@ public class ContextPropagationClientTestCase {
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
-    @Ignore("Tx propagation has some WIP")
     @Test
     public void testTransactionManagedExecutorPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/transaction").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
+    @Test
+    public void testTransactionPropagationNew() {
+        RestAssured.when().get(url.toExternalForm() + "context/transactionnew").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 }

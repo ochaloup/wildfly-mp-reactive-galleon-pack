@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.wildfly.test.integration.microprofile.context.propagation.rest;
 
 import java.util.concurrent.CompletableFuture;
@@ -26,6 +25,7 @@ import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.CDI;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
+import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
@@ -58,6 +58,9 @@ public class ContextPropagationEndpoint {
 
     @Inject
     TransactionManager tm;
+
+    @Inject
+    ContextPropagationEndpoint thisBean;
 
     @GET
     @Path("/tccl")
@@ -270,9 +273,40 @@ public class ContextPropagationEndpoint {
     @Transactional
     @GET
     @Path("/transaction")
-    public CompletionStage<String> transactionTest() throws SystemException {
-        CompletableFuture<String> ret = allExecutor.completedFuture("OK");
+    public CompletionStage<String> transactionalTest() throws SystemException {
+        return asyncTransactional();
+    }
+
+    @Transactional
+    @GET
+    @Path("/transactionnew")
+    public CompletionStage<String> transactionalTestNew() throws SystemException {
         Transaction t1 = tm.getTransaction();
+        return thisBean.asyncTransactionalRequiresNew(t1)
+                .thenComposeAsync(f -> {
+                    try {
+                        // here we expect that the requires new has started and suspended its own transaction
+                        if (!t1.equals(tm.getTransaction())) {
+                            throw new IllegalStateException("Expecting transaction being the same as for the @GET method");
+                        }
+                        return asyncTransactional();
+                    } catch (SystemException se) {
+                        throw new IllegalStateException("Cannot get state of transaction", se);
+                    }
+                });
+    }
+
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public CompletionStage<String> asyncTransactionalRequiresNew(Transaction originalTransaction) throws SystemException {
+        if (originalTransaction.equals(tm.getTransaction())) {
+            throw new IllegalStateException("Expecting a new transaction being started and being different from the provided one");
+        }
+        return asyncTransactional();
+    }
+
+    private CompletionStage<String> asyncTransactional() throws SystemException {
+        CompletableFuture<String> ret = allExecutor.completedFuture("OK");
+        final Transaction t1 = tm.getTransaction();
         if (t1 == null) {
             throw new IllegalStateException("No TM");
         }
@@ -284,8 +318,16 @@ public class ContextPropagationEndpoint {
             } catch (SystemException e) {
                 throw new RuntimeException(e);
             }
-            if (t1 != t2) {
+            if (!t1.equals(t2)) {
                 throw new IllegalStateException("Different transactions");
+            }
+            try {
+                int txnStatus = t1.getStatus();
+                if (t1.getStatus() != Status.STATUS_ACTIVE) {
+                    throw new IllegalStateException("Expecting the transaction being active");
+                }
+            } catch (SystemException se) {
+                throw new IllegalStateException("Cannot get transaction status", se);
             }
 
             return text;
