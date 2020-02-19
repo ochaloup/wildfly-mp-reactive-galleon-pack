@@ -90,4 +90,10 @@ public class ContextPropagationClientTestCase {
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
+    @Test
+    public void testTransactionPropagationNew() {
+        RestAssured.when().get(url.toExternalForm() + "context/transactionnew").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
 }
