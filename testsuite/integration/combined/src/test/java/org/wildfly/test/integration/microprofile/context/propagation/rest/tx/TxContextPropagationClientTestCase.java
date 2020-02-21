@@ -52,7 +52,6 @@ public class TxContextPropagationClientTestCase {
                 .addAsWebInfResource(TxContextPropagationClientTestCase.class.getPackage(), "persistence.xml", "classes/META-INF/persistence.xml")
                 .addPackage(TxContextPropagationClientTestCase.class.getPackage());
 
-        System.out.println("=========> war contents");
         System.out.println(webArchive.toString(true));
         webArchive.as(ZipExporter.class).exportTo(new File("target/" + webArchive.getName()), true);
         return webArchive;
@@ -61,6 +60,12 @@ public class TxContextPropagationClientTestCase {
     @Test
     public void testTx() {
         RestAssured.when().get(url.toExternalForm() + "context/transaction1").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+        RestAssured.when().get(url.toExternalForm() + "context/transaction2").then()
+                .statusCode(Response.Status.CONFLICT.getStatusCode());
+        RestAssured.when().get(url.toExternalForm() + "context/transaction3").then()
+                .statusCode(Response.Status.CONFLICT.getStatusCode());
+        RestAssured.when().get(url.toExternalForm() + "context/transaction4").then()
                 .statusCode(Response.Status.OK.getStatusCode());
 
     }
