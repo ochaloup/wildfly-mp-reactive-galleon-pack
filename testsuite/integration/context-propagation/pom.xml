@@ -117,7 +117,6 @@
                                         <layer>jmx-remoting</layer>
                                         <!-- Layers from this FP -->
                                         <layer>context-propagation</layer>
-                                        <layer>reactive-streams-operators</layer>
                                     </layers>
                                 </config>
                             </configurations>
