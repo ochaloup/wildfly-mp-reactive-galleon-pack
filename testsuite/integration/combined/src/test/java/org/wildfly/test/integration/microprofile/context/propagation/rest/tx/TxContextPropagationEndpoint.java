@@ -16,9 +16,11 @@
 
 package org.wildfly.test.integration.microprofile.context.propagation.rest.tx;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import org.eclipse.microprofile.context.ManagedExecutor;
+import org.jboss.logging.Logger;
+import org.reactivestreams.Publisher;
+import org.wildfly.test.integration.microprofile.context.propagation.rest.tx.publisher.ContextEntityPublisher;
+import org.wildfly.test.integration.microprofile.context.propagation.rest.tx.publisher.ContextEntitySubscriber;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
@@ -36,8 +38,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
-import org.eclipse.microprofile.context.ManagedExecutor;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.stream.Stream;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -46,6 +50,8 @@ import org.eclipse.microprofile.context.ManagedExecutor;
 @Produces(MediaType.TEXT_PLAIN)
 @RequestScoped
 public class TxContextPropagationEndpoint {
+    private static final Logger log = Logger.getLogger(TxContextPropagationEndpoint.class);
+
     @Inject
     ManagedExecutor allExecutor;
 
@@ -54,6 +60,9 @@ public class TxContextPropagationEndpoint {
 
     @Inject
     TransactionManager tm;
+
+    @Inject
+    TxContextPropagationEndpoint thisBean;
 
     @Transactional
     @GET
@@ -86,7 +95,7 @@ public class TxContextPropagationEndpoint {
     @Transactional
     @GET
     @Path("/transaction2")
-    public CompletionStage<String> transactionTest2() throws SystemException {
+    public CompletionStage<String> transactionTest2() {
         CompletableFuture<String> ret = allExecutor.completedFuture("OK");
         assertEquals(1, count());
         assertEquals(1, deleteAll());
@@ -98,7 +107,7 @@ public class TxContextPropagationEndpoint {
     @Transactional
     @GET
     @Path("/transaction3")
-    public CompletionStage<String> transactionTest3() throws SystemException {
+    public CompletionStage<String> transactionTest3() {
         CompletableFuture<String> ret = allExecutor
                 .failedFuture(new WebApplicationException(Response.status(Response.Status.CONFLICT).build()));
         assertEquals(1, count());
@@ -109,13 +118,36 @@ public class TxContextPropagationEndpoint {
     @Transactional
     @GET
     @Path("/transaction4")
-    public String transactionTest4() throws SystemException {
+    public String transactionTest4() {
         // check that the third transaction was not committed
         assertEquals(1, count());
         // now delete our entity
         assertEquals(1, deleteAll());
 
         return "OK";
+    }
+
+    @GET
+    @Path("/flow-publisher")
+    public String  publisher() throws SystemException {
+        log.warnf("Step1: Transaction is now %s", tm.getTransaction());
+        Publisher<Long> receivedPublisher = thisBean.getFlowPublisher();
+        log.warnf("Step2: Transaction is now %s", tm.getTransaction());
+        receivedPublisher.subscribe(new ContextEntitySubscriber(em, tm));
+        assertEquals("On subscriber onComplete all data should be removed", 0, count());
+        return "OK";
+    }
+
+    @Transactional
+    public ContextEntityPublisher getFlowPublisher() throws SystemException {
+        // first let's fill some entities
+        Stream.of("Java", "Clojure", "Scala", "Groovy", "Kotlin").forEach(name -> {
+            em.persist(new ContextEntity().setName(name));
+        });
+        assertEquals("We persisted names of programming languages but query find a wrong count", 5, count());
+        ContextEntityPublisher entityPublisher = new ContextEntityPublisher(em, tm.getTransaction());
+        // allExecutor.runAsync(() -> entityPublisher.subscribe(new ContextEntitySubscriber(em)));
+        return entityPublisher;
     }
 
     private Long count() {
@@ -140,8 +172,13 @@ public class TxContextPropagationEndpoint {
     }
 
     private void assertEquals(long expected, long actual) {
+        assertEquals(null, expected, actual);
+    }
+
+    private void assertEquals(String message, long expected, long actual) {
         if (expected != actual) {
-            throw new IllegalStateException("Expected " + expected + "; got " + actual);
+            if(message != null && !message.isEmpty())  message += "; ";
+            throw new IllegalStateException(message + "Expected " + expected + "; got " + actual);
         }
     }
 

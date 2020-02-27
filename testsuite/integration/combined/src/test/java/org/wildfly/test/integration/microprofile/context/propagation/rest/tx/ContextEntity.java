@@ -34,7 +34,7 @@ public class ContextEntity {
         return id;
     }
 
-    public void setId(Long id) {
+    private void setId(Long id) {
         this.id = id;
     }
 
@@ -42,7 +42,8 @@ public class ContextEntity {
         return name;
     }
 
-    public void setName(String name) {
+    public ContextEntity setName(String name) {
         this.name = name;
+        return this;
     }
 }
