@@ -48,13 +48,33 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>io.rest-assured</groupId>
-            <artifactId>rest-assured</artifactId>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.eclipse.microprofile.context-propagation</groupId>
             <artifactId>microprofile-context-propagation-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.microprofile.reactive-streams-operators</groupId>
+            <artifactId>microprofile-reactive-streams-operators-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.reactivex.rxjava2</groupId>
+            <artifactId>rxjava</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

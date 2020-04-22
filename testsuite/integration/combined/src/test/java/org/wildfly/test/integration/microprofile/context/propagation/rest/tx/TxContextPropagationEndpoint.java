@@ -16,16 +16,15 @@
 
 package org.wildfly.test.integration.microprofile.context.propagation.rest.tx;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
@@ -38,6 +37,9 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.eclipse.microprofile.reactive.streams.operators.ReactiveStreams;
+import org.jboss.resteasy.annotations.Stream;
+import org.reactivestreams.Publisher;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -55,6 +57,9 @@ public class TxContextPropagationEndpoint {
     @Inject
     TransactionManager tm;
 
+    @Inject
+    TransactionalBean txBean;
+
     @Transactional
     @GET
     @Path("/transaction1")
@@ -65,10 +70,8 @@ public class TxContextPropagationEndpoint {
         entity.setName("Stef");
         em.persist(entity);
         Transaction t1 = tm.getTransaction();
-        if (t1 == null) {
-            throw new IllegalStateException("No tx");
-        }
-        assertEquals(1, count());
+        TestUtils.assertNotNull("No tx", t1);
+        TestUtils.assertEquals(1, TestUtils.count(em));
 
         return ret.thenApplyAsync(text -> {
             Transaction t2;
@@ -77,8 +80,8 @@ public class TxContextPropagationEndpoint {
             } catch (SystemException e) {
                 throw new RuntimeException(e);
             }
-            assertSame(t1, t2);
-            assertEquals(1, count());
+            TestUtils.assertSame(t1, t2);
+            TestUtils.assertEquals(1, TestUtils.count(em));
             return text;
         });
     }
@@ -86,10 +89,10 @@ public class TxContextPropagationEndpoint {
     @Transactional
     @GET
     @Path("/transaction2")
-    public CompletionStage<String> transactionTest2() throws SystemException {
+    public CompletionStage<String> transactionTest2() {
         CompletableFuture<String> ret = allExecutor.completedFuture("OK");
-        assertEquals(1, count());
-        assertEquals(1, deleteAll());
+        TestUtils.assertEquals(1, TestUtils.count(em));
+        TestUtils.assertEquals(1, TestUtils.deleteAll(em));
         return ret.thenApplyAsync(x -> {
             throw new WebApplicationException(Response.status(Response.Status.CONFLICT).build());
         });
@@ -98,51 +101,67 @@ public class TxContextPropagationEndpoint {
     @Transactional
     @GET
     @Path("/transaction3")
-    public CompletionStage<String> transactionTest3() throws SystemException {
+    public CompletionStage<String> transactionTest3() {
         CompletableFuture<String> ret = allExecutor
                 .failedFuture(new WebApplicationException(Response.status(Response.Status.CONFLICT).build()));
-        assertEquals(1, count());
-        assertEquals(1, deleteAll());
+        TestUtils.assertEquals(1, TestUtils.count(em));
+        TestUtils.assertEquals(1, TestUtils.deleteAll(em));
         return ret;
     }
 
     @Transactional
     @GET
     @Path("/transaction4")
-    public String transactionTest4() throws SystemException {
+    public String transactionTest4() {
         // check that the third transaction was not committed
-        assertEquals(1, count());
+        TestUtils.assertEquals(1, TestUtils.count(em));
         // now delete our entity
-        assertEquals(1, deleteAll());
+        TestUtils.assertEquals(1, TestUtils.deleteAll(em));
 
         return "OK";
     }
 
-    private Long count() {
-        TypedQuery<Long> query = em.createQuery("SELECT count(c) from ContextEntity c", Long.class);
-        List<Long> result = query.getResultList();
-        return result.get(0);
+
+    @Transactional
+    @GET
+    @Path("/transaction-publisher")
+    @Stream(value = Stream.MODE.RAW)
+    public Publisher<String> transactionPublisher() throws SystemException {
+        ContextEntity entity = new ContextEntity();
+        entity.setName("Stef");
+        em.persist(entity);
+
+        Transaction t1 = tm.getTransaction();
+        TestUtils.assertNotNull("No tx", t1);
+
+        // our entity
+        TestUtils.assertEquals(1, TestUtils.count(em));
+
+        return txBean.doInTxPublisher()
+                // this makes sure we get executed in another scheduler
+                .delay(100, TimeUnit.MILLISECONDS)
+                .map(text -> {
+                    // make sure we don't see the other transaction's entity
+                    Transaction t2;
+                    try {
+                        t2 = tm.getTransaction();
+                    } catch (SystemException e) {
+                        throw new RuntimeException(e);
+                    }
+                    TestUtils.assertEquals(t1, t2);
+                    TestUtils.assertEquals(Status.STATUS_ACTIVE, t2.getStatus());
+                    return text;
+                });
     }
 
-    private int deleteAll() {
-        Query query = em.createQuery("DELETE from ContextEntity");
-        return query.executeUpdate();
-    }
-
-    private void assertSame(Object expected, Object actual) {
-        if (expected != actual) {
-            throw new IllegalStateException(expected + " is not the same as " + actual);
-        }
-    }
-
-    private void assertEquals(int expected, int actual) {
-        assertEquals((long)expected, (long)expected);
-    }
-
-    private void assertEquals(long expected, long actual) {
-        if (expected != actual) {
-            throw new IllegalStateException("Expected " + expected + "; got " + actual);
-        }
+    @Transactional
+    @GET
+    @Path("/transaction-publisher2")
+    public Publisher<String> transactionPublisher2() throws SystemException {
+        Publisher<String> ret = ReactiveStreams.of("OK").buildRs();
+        // now delete both entities
+        TestUtils.assertEquals(2, TestUtils.deleteAll(em));
+        return ret;
     }
 
 }
