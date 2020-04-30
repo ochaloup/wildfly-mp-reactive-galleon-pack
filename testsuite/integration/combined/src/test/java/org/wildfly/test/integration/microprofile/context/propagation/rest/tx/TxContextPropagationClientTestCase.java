@@ -29,7 +29,6 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -59,11 +58,9 @@ public class TxContextPropagationClientTestCase {
         return webArchive;
     }
 
-    @Ignore("Needs TX snapshot")
     @Test
     public void testTx() {
         RestAssured.when().get(url.toExternalForm() + "context/transaction1").then()
                 .statusCode(Response.Status.OK.getStatusCode());
-
     }
 }
