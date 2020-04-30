@@ -20,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.CDI;
@@ -38,7 +39,10 @@ import javax.ws.rs.core.UriInfo;
 
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.eclipse.microprofile.context.ThreadContext;
+import org.reactivestreams.Publisher;
 import org.wildfly.security.manager.WildFlySecurityManager;
+
+import io.reactivex.Flowable;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -87,6 +91,22 @@ public class ContextPropagationEndpoint {
     }
 
     @GET
+    @Path("/tccl-pub")
+    public Publisher<String> tcclPublisherTest() {
+        ClassLoader tccl = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
+        return Flowable.fromArray("OK")
+                // this makes sure we get executed in another scheduler
+                .delay(100, TimeUnit.MILLISECONDS)
+                .map(text -> {
+                    ClassLoader tccl2 = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
+                    if (tccl != tccl2) {
+                        throw new IllegalStateException("TCCL was not the same");
+                    }
+                    return text;
+                });
+    }
+
+    @GET
     @Path("/resteasy")
     public CompletionStage<String> resteasyTest(@Context UriInfo uriInfo) {
         CompletableFuture<String> ret = allExecutor.completedFuture("OK");
@@ -106,7 +126,18 @@ public class ContextPropagationEndpoint {
             uriInfo.getAbsolutePath();
             return text;
         }, executor);
+    }
 
+    @GET
+    @Path("/resteasy-pub")
+    public Publisher<String> resteasyPubTest(@Context UriInfo uriInfo) {
+        return Flowable.fromArray("OK")
+                // this makes sure we get executed in another scheduler
+                .delay(100, TimeUnit.MILLISECONDS)
+                .map(text -> {
+            uriInfo.getAbsolutePath();
+            return text;
+        });
     }
 
     @GET
@@ -129,6 +160,19 @@ public class ContextPropagationEndpoint {
             servletRequest.getContentType();
             return text;
         }, executor);
+    }
+
+    @GET
+    @Path("/servlet-pub")
+    public Publisher<String> servletPubTest(@Context HttpServletRequest servletRequest) {
+        CompletableFuture<String> ret = allExecutor.completedFuture("OK");
+        return Flowable.fromArray("OK")
+                // this makes sure we get executed in another scheduler
+                .delay(100, TimeUnit.MILLISECONDS)
+                .map(text -> {
+            servletRequest.getContentType();
+            return text;
+        });
     }
 
     @GET
@@ -159,6 +203,23 @@ public class ContextPropagationEndpoint {
             }
             return text;
         }, executor);
+    }
+
+    @GET
+    @Path("/cdi-pub")
+    public Publisher<String> cdiPubTest() {
+        RequestBean instance = getRequestBean();
+
+        return Flowable.fromArray("OK")
+                // this makes sure we get executed in another scheduler
+                .delay(100, TimeUnit.MILLISECONDS)
+                .map(text -> {
+                    RequestBean instance2 = getRequestBean();
+                    if (instance.id() != instance2.id()) {
+                        throw new IllegalStateException("Instances were not the same");
+                    }
+                    return text;
+                });
     }
 
     @GET
@@ -199,6 +260,13 @@ public class ContextPropagationEndpoint {
         }, executor);
     }
 
+    @GET
+    @Path("/nocdi-pub")
+    public Publisher<String> noCdiPubTest() {
+        throw new IllegalStateException("Not possible to clear contexts");
+    }
+
+
     @Transactional
     @GET
     @Path("/transaction")
@@ -222,33 +290,6 @@ public class ContextPropagationEndpoint {
 
             return text;
         });
-    }
-
-    @Transactional
-    @GET
-    @Path("/transaction-tc")
-    public CompletionStage<String> transactionTcTest() throws SystemException {
-        Transaction t1 = tm.getTransaction();
-        if (t1 == null) {
-            throw new IllegalStateException("No TM");
-        }
-
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        CompletableFuture<String> ret = allTc.withContextCapture(CompletableFuture.completedFuture("OK"));
-
-        return ret.thenApplyAsync(text -> {
-            Transaction t2;
-            try {
-                t2 = tm.getTransaction();
-            } catch (SystemException e) {
-                throw new RuntimeException(e);
-            }
-            if (t1 != t2) {
-                throw new IllegalStateException("Different transactions");
-            }
-
-            return text;
-        }, executor);
     }
 
     private RequestBean getRequestBean() {

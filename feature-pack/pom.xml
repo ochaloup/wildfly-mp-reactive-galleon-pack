@@ -144,6 +144,10 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>io.smallrye</groupId>
+            <artifactId>smallrye-context-propagation-propagators-rxjava2</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.smallrye.reactive</groupId>
             <artifactId>smallrye-axle-core</artifactId>
             <scope>provided</scope>
