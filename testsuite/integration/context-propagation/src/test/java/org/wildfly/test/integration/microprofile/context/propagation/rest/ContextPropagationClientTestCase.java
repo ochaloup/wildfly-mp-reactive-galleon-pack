@@ -53,40 +53,80 @@ public class ContextPropagationClientTestCase {
     }
 
     @Test
-    public void testTcclPropagation() {
+    public void testTcclManagedExecutorPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/tccl").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
+    @Test
+    public void testTcclThreadContextPropagation() {
+        RestAssured.when().get(url.toExternalForm() + "context/tccl-tc").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
     @Ignore("TODO we don't have RestEasy context propagation yet")
     @Test
-    public void testRESTEasyContextPropagation() {
+    public void testRESTEasyManagedExecutorContextPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/resteasy").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
+    @Ignore("TODO we don't have RestEasy context propagation yet")
+    @Test
+    public void testRESTEasyThreadContextContextPropagation() {
+        RestAssured.when().get(url.toExternalForm() + "context/resteasy-tc").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
     @Ignore("we don't have servlet context propagation yet")
-    public void testServletContextPropagation() {
+    @Test
+    public void testServletContextManagedExecutorPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/servlet").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
+    @Ignore("we don't have servlet context propagation yet")
     @Test
-    public void testCdiContextPropagation() {
+    public void testServletContextThreadContextPropagation() {
+        RestAssured.when().get(url.toExternalForm() + "context/servlet-tc").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
+    @Test
+    public void testCdiManagedExecutorContextPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/cdi").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
     @Test
-    public void testNoCdiContextPropagation() {
+    public void testCdiThreadContextContextPropagation() {
+        RestAssured.when().get(url.toExternalForm() + "context/cdi-tc").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
+    @Test
+    public void testNoCdiManagedExecutorContextPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/nocdi").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
+    @Test
+    public void testNoCdiThreadContextContextPropagation() {
+        RestAssured.when().get(url.toExternalForm() + "context/nocdi-tc").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
     @Ignore("Tx propagation has some WIP")
     @Test
-    public void testTransactionPropagation() {
+    public void testTransactionManagedExecutorPropagation() {
         RestAssured.when().get(url.toExternalForm() + "context/transaction").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
+
+    @Ignore("Tx propagation has some WIP")
+    @Test
+    public void testTransactionThreadContextPropagation() {
+        RestAssured.when().get(url.toExternalForm() + "context/transaction-tc").then()
                 .statusCode(Response.Status.OK.getStatusCode());
     }
 
