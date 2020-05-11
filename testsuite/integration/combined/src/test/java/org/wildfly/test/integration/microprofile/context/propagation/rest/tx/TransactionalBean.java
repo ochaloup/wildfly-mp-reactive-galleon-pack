@@ -33,11 +33,14 @@ public class TransactionalBean {
 
     @Transactional(value = TxType.REQUIRES_NEW)
     public Flowable<String> doInTxPublisher() {
+        System.out.println("----> TransactionalBean count " + TestUtils.count(em));
         TestUtils.assertEquals(0, TestUtils.count(em));
 
         ContextEntity entity = new ContextEntity();
         entity.setName("Stef");
         em.persist(entity);
+
+        System.out.println("----> TransactionalBean persisted entity " + entity.getId());
 
         return Flowable.fromArray("OK");
     }

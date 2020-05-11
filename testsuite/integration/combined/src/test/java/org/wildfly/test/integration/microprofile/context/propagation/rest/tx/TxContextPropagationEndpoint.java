@@ -127,20 +127,25 @@ public class TxContextPropagationEndpoint {
     @Path("/transaction-publisher")
     @Stream(value = Stream.MODE.RAW)
     public Publisher<String> transactionPublisher() throws SystemException {
+        System.out.println("----> TX Publisher ");
         ContextEntity entity = new ContextEntity();
         entity.setName("Stef");
         em.persist(entity);
+        System.out.println("----> Persisted entity " + entity.getId());
 
         Transaction t1 = tm.getTransaction();
+        System.out.println("----> Got Tx1 " + t1);
         TestUtils.assertNotNull("No tx", t1);
 
         // our entity
+        System.out.println("----> Checking count " + TestUtils.count(em));
         TestUtils.assertEquals(1, TestUtils.count(em));
 
         return txBean.doInTxPublisher()
                 // this makes sure we get executed in another scheduler
                 .delay(100, TimeUnit.MILLISECONDS)
                 .map(text -> {
+                    System.out.println("---> In publisher map");
                     // make sure we don't see the other transaction's entity
                     Transaction t2;
                     try {
@@ -148,7 +153,17 @@ public class TxContextPropagationEndpoint {
                     } catch (SystemException e) {
                         throw new RuntimeException(e);
                     }
+                    System.out.println("---> map Tx " + t2);
+                    if (t1 == null) {
+                        System.out.println("---> t1 is null");
+                    } else if (t2 == null) {
+                        System.out.println("---> t2 is null");
+                    } else {
+                        System.out.println("---> t1.equals(t2) " + t1.equals(t2));
+                        System.out.println("---> t1 == t2 " + (t1 == t2));
+                    }
                     TestUtils.assertEquals(t1, t2);
+
                     TestUtils.assertEquals(Status.STATUS_ACTIVE, t2.getStatus());
                     return text;
                 });
