@@ -16,15 +16,15 @@
 
 package org.wildfly.test.integration.microprofile.context.propagation.rest.tx;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
+import org.eclipse.microprofile.context.ManagedExecutor;
+import org.eclipse.microprofile.reactive.streams.operators.ReactiveStreams;
+import org.jboss.resteasy.annotations.Stream;
+import org.reactivestreams.Publisher;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
@@ -35,11 +35,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
-import org.eclipse.microprofile.context.ManagedExecutor;
-import org.eclipse.microprofile.reactive.streams.operators.ReactiveStreams;
-import org.jboss.resteasy.annotations.Stream;
-import org.reactivestreams.Publisher;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -59,6 +56,13 @@ public class TxContextPropagationEndpoint {
 
     @Inject
     TransactionalBean txBean;
+
+    @Transactional
+    @GET
+    @Path("/delete")
+    public int deleteAll() {
+        return TestUtils.deleteAll(em);
+    }
 
     @Transactional
     @GET
@@ -131,7 +135,7 @@ public class TxContextPropagationEndpoint {
         ContextEntity entity = new ContextEntity();
         entity.setName("Stef");
         em.persist(entity);
-        System.out.println("----> Persisted entity " + entity.getId());
+        System.out.printf("----> Persisted entity %d, count: %d%n", entity.getId(), TestUtils.count(em));
 
         Transaction t1 = tm.getTransaction();
         System.out.println("----> Got Tx1 " + t1);
@@ -142,10 +146,8 @@ public class TxContextPropagationEndpoint {
         TestUtils.assertEquals(1, TestUtils.count(em));
 
         return txBean.doInTxPublisher()
-                // this makes sure we get executed in another scheduler
-                .delay(100, TimeUnit.MILLISECONDS)
                 .map(text -> {
-                    System.out.println("---> In publisher map");
+                    System.out.printf("---> In publisher map, count %s%n", TestUtils.count(em));
                     // make sure we don't see the other transaction's entity
                     Transaction t2;
                     try {
@@ -164,9 +166,10 @@ public class TxContextPropagationEndpoint {
                     }
                     TestUtils.assertEquals(t1, t2);
 
-                    TestUtils.assertEquals(Status.STATUS_ACTIVE, t2.getStatus());
+                    // the map could be called several times with non-active transaction as well
+                    // TestUtils.assertEquals(Status.STATUS_ACTIVE, t2.getStatus());
                     return text;
-                });
+                }).buildRs();
     }
 
     @Transactional

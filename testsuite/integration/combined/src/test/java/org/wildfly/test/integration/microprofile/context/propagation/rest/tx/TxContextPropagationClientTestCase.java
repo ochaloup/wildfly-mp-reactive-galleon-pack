@@ -35,6 +35,7 @@ import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,6 +50,12 @@ public class TxContextPropagationClientTestCase {
 
     @ArquillianResource
     URL url;
+
+    @Before
+    public void setUp() {
+        RestAssured.when().get(url.toExternalForm() + "context/delete").then()
+                .statusCode(Response.Status.OK.getStatusCode());
+    }
 
     @Deployment
     public static WebArchive getDeployment() {

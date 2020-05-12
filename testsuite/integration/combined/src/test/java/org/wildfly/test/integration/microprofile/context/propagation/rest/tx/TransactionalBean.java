@@ -16,13 +16,14 @@
 
 package org.wildfly.test.integration.microprofile.context.propagation.rest.tx;
 
+import org.eclipse.microprofile.reactive.streams.operators.PublisherBuilder;
+import org.eclipse.microprofile.reactive.streams.operators.ReactiveStreams;
+
 import javax.enterprise.context.ApplicationScoped;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.transaction.Transactional;
 import javax.transaction.Transactional.TxType;
-
-import io.reactivex.Flowable;
 
 
 @ApplicationScoped
@@ -32,7 +33,8 @@ public class TransactionalBean {
     EntityManager em;
 
     @Transactional(value = TxType.REQUIRES_NEW)
-    public Flowable<String> doInTxPublisher() {
+    // public Flowable<String> doInTxPublisher() {
+    public PublisherBuilder<String> doInTxPublisher() {
         System.out.println("----> TransactionalBean count " + TestUtils.count(em));
         TestUtils.assertEquals(0, TestUtils.count(em));
 
@@ -40,10 +42,14 @@ public class TransactionalBean {
         entity.setName("Stef");
         em.persist(entity);
 
-        System.out.println("----> TransactionalBean persisted entity " + entity.getId());
+        System.out.printf("----> TransactionalBean persisted entity %d ,count: %d%n", entity.getId(), TestUtils.count(em));
 
-        return Flowable.fromArray("OK");
+         // return Flowable.fromArray("OK");
+        /* return Flowable.create(source -> {
+            source.onNext("OK");
+            source.onComplete();
+        }, BackpressureStrategy.MISSING); */
+        return ReactiveStreams.of("OK");
     }
-
 
 }
